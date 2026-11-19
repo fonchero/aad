@@ -157,6 +157,7 @@ func main() {
 
 	registerReadRoutes(mux, pool)
 	registerQuestionRoutes(mux, pool)
+	registerResumeRoutes(mux, pool)
 
 	server := &http.Server{
 		Addr:              ":8080",
