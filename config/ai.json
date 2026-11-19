@@ -2,28 +2,28 @@
   "version": 1,
   "defaults": {
     "timeout_seconds": 120,
-    "max_attempts": 2
+    "max_attempts": 1
   },
   "agents": {
     "requirement_analyzer": {
       "provider": "codex",
-      "model": "gpt-6-astra",
-      "reasoning_effort": "medium"
+      "model": "gpt-6-luna",
+      "reasoning_effort": "low"
     },
     "banking_discovery": {
       "provider": "codex",
-      "model": "gpt-6-astra",
+      "model": "gpt-6.2-sol",
       "reasoning_effort": "medium"
     },
     "readiness_gate": {
       "provider": "codex",
-      "model": "gpt-6-astra",
-      "reasoning_effort": "high"
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "medium"
     },
     "integration_builder": {
       "provider": "codex",
-      "model": "gpt-6-astra",
-      "reasoning_effort": "high"
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "medium"
     }
   },
   "providers": {
@@ -36,5 +36,12 @@
       "base_url": "https://openrouter.ai/api/v1",
       "api_key_env": "OPENROUTER_API_KEY"
     }
+  },
+  "escalation": {
+    "enabled": false,
+    "requires_approval": true,
+    "provider": "codex",
+    "model": "gpt-6.2-astra",
+    "reasoning_effort": "high"
   }
 }
