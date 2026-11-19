@@ -199,7 +199,8 @@ def discover_banking():
 
         columns = conn.execute(
             """
-            SELECT table_name, column_name, data_type
+            SELECT table_name, column_name, data_type,
+                   is_nullable
             FROM information_schema.columns
             WHERE table_schema = 'public'
               AND table_name IN (
@@ -213,9 +214,10 @@ def discover_banking():
             {
                 "table": t,
                 "column": c,
-                "type": d
+                "type": d,
+                "nullable": nullable == "YES"
             }
-            for t, c, d in columns
+            for t, c, d, nullable in columns
         ]
 
         constraints = conn.execute(
@@ -284,6 +286,28 @@ def discover_banking():
             "recorded_principal_covers_amount": coverage[2],
         }
 
+
+        profile = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE amount IS NULL),
+                COUNT(*) FILTER (WHERE start_date IS NULL),
+                COUNT(*) FILTER (WHERE loan_number IS NULL),
+                COUNT(*) FILTER (WHERE status IS NULL)
+            FROM public.loans
+            """
+        ).fetchone()
+
+        evidence["loans_null_profile"] = {
+            "total": profile[0],
+            "amount_nulls": profile[1],
+            "start_date_nulls": profile[2],
+            "loan_number_nulls": profile[3],
+            "status_nulls": profile[4]
+        }
+
+
     evidence["limitations"] = [
         "Los estados permitidos no prueban una fecha de cierre.",
         "MAX(payment_date) no es necesariamente la fecha de cancelacion.",
@@ -340,8 +364,19 @@ def readiness(request, analysis, discovery):
 
 def persist(request_id, execution_id, analysis, discovery, decision):
     is_ready = decision["build_readiness"] == "GO"
-    status = "READY_FOR_BUILD" if is_ready else "WAITING_INPUT"
-    execution_status = "SUCCEEDED" if is_ready else "WAITING_INPUT"
+
+    if is_ready:
+        status = "READY_FOR_BUILD"
+    elif decision["questions"]:
+        status = "WAITING_INPUT"
+    else:
+        status = "BLOCKED"
+
+    execution_status = (
+        "WAITING_INPUT"
+        if status == "WAITING_INPUT"
+        else "SUCCEEDED"
+    )
 
     specification = {
         "analysis": analysis,
