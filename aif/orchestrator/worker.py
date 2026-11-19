@@ -315,6 +315,38 @@ def discover_banking():
         "No se han investigado otras fuentes de datos."
     ]
 
+    # Metadatos estructurales verificables de PostgreSQL.
+    # No dependen de los valores de una solicitud concreta.
+    with psycopg.connect(**credentials(".env.reader")) as db:
+        rows = db.execute(
+            """
+            SELECT
+                table_name,
+                column_name,
+                data_type,
+                is_nullable,
+                numeric_precision,
+                numeric_scale
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+            ORDER BY table_name, ordinal_position
+            """
+        ).fetchall()
+
+    evidence["numeric_column_metadata"] = [
+        {
+            "table": table,
+            "column": column,
+            "type": data_type,
+            "nullable": nullable == "YES",
+            "precision": precision,
+            "scale": scale
+        }
+        for (
+            table, column, data_type, nullable,
+            precision, scale
+        ) in rows
+    ]
     return evidence
 
 
