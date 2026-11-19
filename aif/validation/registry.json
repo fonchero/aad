@@ -1,0 +1,7 @@
+{
+  "schema_version": "1",
+  "contracts": {
+    "d0b3ace2-9d33-4004-b670-80f9cdade00e": "customer-loans.json",
+    "5ee72186-0a4d-4dcf-b177-87cd52264ae9": "loans-summary.json"
+  }
+}

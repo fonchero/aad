@@ -1,0 +1,27 @@
+{
+  "schema_version": "1",
+  "id": "loans-summary-v1",
+  "request_id": "5ee72186-0a4d-4dcf-b177-87cd52264ae9",
+  "cases": [
+    {
+      "name": "health",
+      "path": "/health",
+      "status": 200,
+      "expected_json": {
+        "status": "ok"
+      }
+    },
+    {
+      "name": "summary_matches_database",
+      "path": "/api/v1/loans/summary",
+      "status": 200,
+      "expected_sql": "\nSELECT json_build_object(\n    'total_loans',\n    (SELECT COUNT(*) FROM public.loans),\n    'by_status',\n    COALESCE(\n        (\n            SELECT json_agg(\n                json_build_object(\n                    'status', s.status,\n                    'count', s.loan_count,\n                    'total_amount', s.total_amount\n                )\n                ORDER BY s.status\n            )\n            FROM (\n                SELECT\n                    status,\n                    COUNT(*) AS loan_count,\n                    SUM(amount)::text AS total_amount\n                FROM public.loans\n                GROUP BY status\n            ) s\n        ),\n        '[]'::json\n    )\n)\n",
+      "minimum_array_items": {
+        "by_status": 1
+      },
+      "minimum_number": {
+        "total_loans": 1
+      }
+    }
+  ]
+}

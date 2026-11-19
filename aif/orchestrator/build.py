@@ -23,6 +23,13 @@ from build_pipeline import (
     claim, finish_failure, verify_go, audit
 )
 
+import sys
+
+sys.path.insert(
+    0, str(ROOT / "aif" / "validation")
+)
+from runner import validate_contract
+
 
 def run(args, cwd=None, timeout=300, env=None, stdin=None):
     result = subprocess.run(
@@ -83,6 +90,58 @@ def check_contract(request):
             "Contrato no soportado por el validador V0.3"
         )
 
+
+
+def resolve_contract(request_id):
+    registry_path = (
+        ROOT / "aif/validation/registry.json"
+    )
+
+    registry = json.loads(
+        registry_path.read_text()
+    )
+
+    if registry.get("schema_version") != "1":
+        raise RuntimeError(
+            "Versión de registro no soportada"
+        )
+
+    filename = registry["contracts"].get(
+        str(request_id)
+    )
+
+    if not filename:
+        raise RuntimeError(
+            "No existe contrato aprobado "
+            f"para el requerimiento {request_id}"
+        )
+
+    contract_dir = (
+        ROOT / "aif/validation/contracts"
+    ).resolve()
+
+    contract_path = (
+        contract_dir / filename
+    ).resolve()
+
+    if (
+        contract_path.parent != contract_dir
+        or not contract_path.is_file()
+    ):
+        raise RuntimeError(
+            "Ruta de contrato inválida"
+        )
+
+    contract = json.loads(
+        contract_path.read_text()
+    )
+
+    if contract.get("request_id") != str(request_id):
+        raise RuntimeError(
+            "El contrato pertenece a otro requerimiento"
+        )
+
+    return contract_path
 
 def make_prompt(request):
     spec = request["specification"]
@@ -302,87 +361,8 @@ def start_service(tag, name, port):
     )
 
 
-def get_json(url):
-    with urllib.request.urlopen(url, timeout=10) as response:
-        if response.status != 200:
-            raise RuntimeError(
-                f"HTTP inesperado: {response.status}"
-            )
-        return json.load(response)
 
 
-def validate_summary(base_url):
-    with psycopg.connect(**credentials(".env.reader")) as conn:
-        rows = conn.execute(
-            """
-            SELECT status, COUNT(*), SUM(amount)
-            FROM public.loans
-            GROUP BY status
-            ORDER BY status
-            """
-        ).fetchall()
-
-    expected = [
-        {
-            "status": status,
-            "count": count,
-            "total_amount": f"{total:.2f}",
-        }
-        for status, count, total in rows
-    ]
-
-    actual = get_json(
-        base_url + "/api/v1/loans/summary"
-    )
-
-    if set(actual) != {"total_loans", "by_status"}:
-        raise RuntimeError("Campos principales incorrectos")
-
-    if not isinstance(actual["total_loans"], int):
-        raise RuntimeError("total_loans debe ser entero")
-
-    if not isinstance(actual["by_status"], list):
-        raise RuntimeError("by_status debe ser arreglo")
-
-    for item in actual["by_status"]:
-        if set(item) != {"status", "count", "total_amount"}:
-            raise RuntimeError("Campos de agregado incorrectos")
-        if (
-            not isinstance(item["status"], str)
-            or not isinstance(item["count"], int)
-            or not isinstance(item["total_amount"], str)
-            or not re.fullmatch(
-                r"-?\d+\.\d{2}", item["total_amount"]
-            )
-        ):
-            raise RuntimeError("Tipos o formato decimal incorrectos")
-
-    expected_count = sum(x["count"] for x in expected)
-
-    if actual["total_loans"] != expected_count:
-        raise RuntimeError("Total de préstamos incorrecto")
-
-    if actual["by_status"] != expected:
-        raise RuntimeError(
-            "Agregados HTTP diferentes de PostgreSQL:\n"
-            f"Esperado: {expected}\n"
-            f"Obtenido: {actual['by_status']}"
-        )
-
-    return {
-        "status": "PASS",
-        "endpoint": "/api/v1/loans/summary",
-        "total_loans": expected_count,
-        "groups_compared": len(expected),
-        "total_amount": format(
-            sum(
-                (Decimal(x["total_amount"]) for x in expected),
-                Decimal("0")
-            ),
-            ".2f"
-        ),
-        "exact_json_match": True,
-    }
 
 
 def create_manifest(
@@ -501,6 +481,7 @@ def main():
 
     request = load_request(request_id)
     check_contract(request)
+    resolve_contract(request_id)
 
     # claim() verifica el GO y bloquea transaccionalmente.
     execution_id, attempt = claim(request_id)
@@ -552,10 +533,15 @@ def main():
         start_service(tag, name, args.port)
         print("PASS: contenedor iniciado", flush=True)
 
-        e2e = validate_summary(
+        e2e = validate_contract(
+            resolve_contract(request_id),
             f"http://127.0.0.1:{args.port}"
         )
-        print("PASS: agregados PostgreSQL", flush=True)
+        print(
+            f"PASS: contrato {e2e['contract']} "
+            f"({e2e['cases_passed']}/{e2e['cases_total']})",
+            flush=True,
+        )
 
         validation = {
             "status": "PASS",
@@ -586,8 +572,9 @@ def main():
             "validation": "PASS",
             "artifact_path": str(target.relative_to(ROOT)),
             "image_id": image_id,
-            "total_loans": e2e["total_loans"],
-            "groups_compared": e2e["groups_compared"],
+            "contract": e2e["contract"],
+            "cases_passed": e2e["cases_passed"],
+            "cases_total": e2e["cases_total"],
         }, indent=2))
 
     except Exception as exc:

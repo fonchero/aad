@@ -1,0 +1,51 @@
+{
+  "schema_version": "1",
+  "id": "customer-loans-v1",
+  "request_id": "d0b3ace2-9d33-4004-b670-80f9cdade00e",
+  "cases": [
+    {
+      "name": "health",
+      "path": "/health",
+      "status": 200,
+      "expected_json": {
+        "status": "ok"
+      }
+    },
+    {
+      "name": "customer_with_loans",
+      "path": "/api/v1/customers/{value}/loans",
+      "status": 200,
+      "selector_sql": "\n                SELECT customer_id\n                FROM public.loans\n                GROUP BY customer_id\n                ORDER BY COUNT(*) DESC, customer_id\n                LIMIT 1\n            ",
+      "expected_sql": "\nSELECT json_build_object(\n    'customer_id', c.id,\n    'loans', COALESCE(\n        (\n            SELECT json_agg(\n                json_build_object(\n                    'id', l.id,\n                    'loan_number', l.loan_number,\n                    'amount', l.amount::text,\n                    'status', l.status,\n                    'start_date', l.start_date::text\n                )\n                ORDER BY l.id\n            )\n            FROM public.loans l\n            WHERE l.customer_id = c.id\n        ),\n        '[]'::json\n    )\n)\nFROM public.customers c\nWHERE c.id = %s\n",
+      "bind_value": true,
+      "minimum_array_items": {
+        "loans": 1
+      }
+    },
+    {
+      "name": "customer_without_loans",
+      "path": "/api/v1/customers/{value}/loans",
+      "status": 200,
+      "selector_sql": "\n                SELECT c.id\n                FROM public.customers c\n                LEFT JOIN public.loans l ON l.customer_id = c.id\n                GROUP BY c.id\n                HAVING COUNT(l.id) = 0\n                ORDER BY c.id\n                LIMIT 1\n            ",
+      "expected_sql": "\nSELECT json_build_object(\n    'customer_id', c.id,\n    'loans', COALESCE(\n        (\n            SELECT json_agg(\n                json_build_object(\n                    'id', l.id,\n                    'loan_number', l.loan_number,\n                    'amount', l.amount::text,\n                    'status', l.status,\n                    'start_date', l.start_date::text\n                )\n                ORDER BY l.id\n            )\n            FROM public.loans l\n            WHERE l.customer_id = c.id\n        ),\n        '[]'::json\n    )\n)\nFROM public.customers c\nWHERE c.id = %s\n",
+      "bind_value": true
+    },
+    {
+      "name": "unknown_customer",
+      "path": "/api/v1/customers/{value}/loans",
+      "status": 404,
+      "selector_sql": "\n                SELECT COALESCE(MAX(id), 0) + 1\n                FROM public.customers\n            ",
+      "expected_json": {
+        "error": "customer_not_found"
+      }
+    },
+    {
+      "name": "invalid_customer_id",
+      "path": "/api/v1/customers/abc/loans",
+      "status": 400,
+      "expected_json": {
+        "error": "invalid_customer_id"
+      }
+    }
+  ]
+}
