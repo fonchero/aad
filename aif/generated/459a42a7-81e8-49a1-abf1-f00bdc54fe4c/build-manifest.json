@@ -1,0 +1,92 @@
+{
+  "schema_version": "0.2",
+  "request_id": "459a42a7-81e8-49a1-abf1-f00bdc54fe4c",
+  "execution_id": "0dcbb21d-a648-4835-8461-109200ef3b7e",
+  "created_at": "2026-11-19T14:19:39.831651+00:00",
+  "source": {
+    "build_readiness": "GO"
+  },
+  "builder": {
+    "provider": "codex",
+    "model": "gpt-6.2-sol",
+    "reasoning_effort": "medium",
+    "invocations": 0,
+    "generation_mode": "recovered_workspace",
+    "note": "Código reutilizado de intento anterior"
+  },
+  "artifact": {
+    "image_tag": "aad-loans-summary:459a42a7",
+    "image_id": "sha256:22760b7ecf0cd121fcae2374842194c6b6c3d2580baad242dc2506a0182f448f",
+    "files_sha256": {
+      "Dockerfile": "53e9f25544cd71a560edfc00f51ec0f0a2ced7ae7effa5107d5b7886ab373ffb",
+      "README.md": "bdbd13116c7c29ef7492c853c9dd5be2a0b1250b800dd1d65098f7974a536d6c",
+      "go.mod": "7d5ef601e48c694198da4537b393f324c7e37b41df3d7155c88098695e2de9ac",
+      "go.sum": "5ef20f680897ae9ad5df7a2324a1861b2e110f7cbf8d78b7840872bbedf6bbc6",
+      "http.go": "6d3b572fc8984ec97e94e72b8e4ee96b762a7e24d81344ea66a88b27b62bcdbb",
+      "http_test.go": "eaa721b30c2082234062e27d959f959611d7a71d711d90ae17c3bb5388e9bf56",
+      "main.go": "f2c8cbc14efeffa3c8f723a6b6b0f3c64c94c3a263dc5a72e2ed93f332c7f385",
+      "store.go": "4f398d8b6e6a482e02a859a4fc81bdeb623e23f5bf68340a81a845ea377482fd"
+    }
+  },
+  "validation": {
+    "status": "PASS",
+    "go": {
+      "format": "PASS",
+      "tests": "PASS",
+      "vet": "PASS",
+      "build": "PASS",
+      "output": "ok  \taif-loan-statistics\t0.003s"
+    },
+    "e2e": {
+      "contract": "estadisticas-prestamos-por-cliente-v1",
+      "schema_version": "1",
+      "status": "PASS",
+      "cases_passed": 8,
+      "cases_total": 8,
+      "results": [
+        {
+          "case": "health",
+          "result": "PASS",
+          "http_status": 200
+        },
+        {
+          "case": "cliente_existente_con_prestamos",
+          "result": "PASS",
+          "http_status": 200
+        },
+        {
+          "case": "cliente_existente_sin_prestamos",
+          "result": "PASS",
+          "http_status": 200
+        },
+        {
+          "case": "cliente_inexistente",
+          "result": "PASS",
+          "http_status": 404
+        },
+        {
+          "case": "identificador_cero",
+          "result": "PASS",
+          "http_status": 400
+        },
+        {
+          "case": "identificador_negativo",
+          "result": "PASS",
+          "http_status": 400
+        },
+        {
+          "case": "identificador_alfabetico",
+          "result": "PASS",
+          "http_status": 400
+        },
+        {
+          "case": "identificador_fraccionario",
+          "result": "PASS",
+          "http_status": 400
+        }
+      ],
+      "validated_at": "2026-11-19T14:19:39.828444+00:00"
+    },
+    "validated_at": "2026-11-19T14:19:39.828524+00:00"
+  }
+}

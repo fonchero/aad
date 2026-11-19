@@ -29,6 +29,7 @@ sys.path.insert(
     0, str(ROOT / "aif" / "validation")
 )
 from runner import validate_contract
+from designer import ensure_contract
 
 
 def run(args, cwd=None, timeout=300, env=None, stdin=None):
@@ -488,6 +489,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--request-id", required=True)
     parser.add_argument("--port", type=int, default=18082)
+    parser.add_argument("--resume-workspace")
     args = parser.parse_args()
 
     # UUID validado antes de formar nombres o rutas.
@@ -496,7 +498,10 @@ def main():
 
     request = load_request(request_id)
     check_contract(request)
-    resolve_contract(request_id)
+
+    # Para solicitudes nuevas, el contrato se
+    # genera y verifica antes de reclamar el build.
+    contract_path = ensure_contract(request_id)
 
     # claim() verifica el GO y bloquea transaccionalmente.
     execution_id, attempt = claim(request_id)
@@ -506,9 +511,19 @@ def main():
         flush=True,
     )
 
-    workspace = Path(tempfile.mkdtemp(
-        prefix="aad-build-",
-    ))
+    if args.resume_workspace:
+        workspace = Path(args.resume_workspace).resolve()
+        if (
+            workspace.parent != Path("/tmp")
+            or not workspace.name.startswith("aad-build-")
+            or not workspace.is_dir()
+            or workspace.is_symlink()
+        ):
+            raise RuntimeError("Workspace de recuperación inválido")
+    else:
+        workspace = Path(tempfile.mkdtemp(
+            prefix="aad-build-",
+        ))
     name = f"aad-summary-{request_id[:8]}"
     tag = f"aad-loans-summary:{request_id[:8]}"
     target = ROOT / "aif/generated" / request_id
@@ -519,7 +534,22 @@ def main():
                 "Ya existe un artefacto para esta solicitud"
             )
 
-        builder = generate(request, workspace)
+        if args.resume_workspace:
+            ai = CONFIG["agents"]["integration_builder"]
+            builder = {
+                "provider": ai["provider"],
+                "model": ai["model"],
+                "reasoning_effort": ai["reasoning_effort"],
+                "invocations": 0,
+                "generation_mode": "recovered_workspace",
+                "note": "Código reutilizado de intento anterior"
+            }
+            print(
+                "PASS: reutilizando código generado previamente",
+                flush=True,
+            )
+        else:
+            builder = generate(request, workspace)
 
         count = inspect_workspace(workspace)
         print(f"PASS: {count} archivos revisados", flush=True)
@@ -529,11 +559,11 @@ def main():
             [
                 "docker", "run", "--rm",
                 "--network", "bridge",
-                "-v", f"{workspace}:/app:ro",
+                "-v", f"{workspace}:/app",
                 "-v", "aad-go-mod-cache:/go/pkg/mod",
                 "-w", "/app",
                 "golang:1.24-alpine",
-                "go", "mod", "download",
+                "sh", "-ec", "go mod tidy && go mod download",
             ],
             timeout=180,
         )
@@ -549,7 +579,7 @@ def main():
         print("PASS: contenedor iniciado", flush=True)
 
         e2e = validate_contract(
-            resolve_contract(request_id),
+            contract_path,
             f"http://127.0.0.1:{args.port}"
         )
         print(

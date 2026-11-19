@@ -1,0 +1,72 @@
+{
+  "schema_version": "1",
+  "id": "estadisticas-prestamos-por-cliente-v1",
+  "request_id": "459a42a7-81e8-49a1-abf1-f00bdc54fe4c",
+  "cases": [
+    {
+      "name": "health",
+      "path": "/health",
+      "status": 200,
+      "expected_json": {
+        "status": "ok"
+      }
+    },
+    {
+      "name": "cliente_existente_con_prestamos",
+      "path": "/api/v1/customers/{value}/loan-statistics",
+      "status": 200,
+      "selector_sql": "SELECT l.customer_id FROM public.loans AS l WHERE l.customer_id > 0 GROUP BY l.customer_id ORDER BY COUNT(DISTINCT l.status) DESC, COUNT(*) DESC, l.customer_id LIMIT 1",
+      "expected_sql": "SELECT json_build_object('customer_id', c.id, 'total_loans', COUNT(l.id), 'active_loans', COUNT(l.id) FILTER (WHERE l.status = 'active'), 'defaulted_loans', COUNT(l.id) FILTER (WHERE l.status = 'defaulted'), 'paid_off_loans', COUNT(l.id) FILTER (WHERE l.status = 'paid_off')) FROM (SELECT CAST(%s AS integer) AS id) AS c LEFT JOIN public.loans AS l ON l.customer_id = c.id GROUP BY c.id",
+      "bind_value": true
+    },
+    {
+      "name": "cliente_existente_sin_prestamos",
+      "path": "/api/v1/customers/{value}/loan-statistics",
+      "status": 200,
+      "selector_sql": "SELECT c.id FROM public.customers AS c WHERE c.id > 0 AND NOT EXISTS (SELECT 1 FROM public.loans AS l WHERE l.customer_id = c.id) ORDER BY c.id LIMIT 1",
+      "expected_sql": "SELECT json_build_object('customer_id', CAST(%s AS integer), 'total_loans', 0, 'active_loans', 0, 'defaulted_loans', 0, 'paid_off_loans', 0)",
+      "bind_value": true
+    },
+    {
+      "name": "cliente_inexistente",
+      "path": "/api/v1/customers/{value}/loan-statistics",
+      "status": 404,
+      "selector_sql": "SELECT candidatos.id FROM (SELECT 1 AS id UNION ALL SELECT c.id + 1 FROM public.customers AS c WHERE c.id >= 1 AND c.id < 2147483647) AS candidatos WHERE NOT EXISTS (SELECT 1 FROM public.customers AS c WHERE c.id = candidatos.id) ORDER BY candidatos.id LIMIT 1",
+      "expected_json": {
+        "error": "customer_not_found"
+      }
+    },
+    {
+      "name": "identificador_cero",
+      "path": "/api/v1/customers/0/loan-statistics",
+      "status": 400,
+      "expected_json": {
+        "error": "invalid_customer_id"
+      }
+    },
+    {
+      "name": "identificador_negativo",
+      "path": "/api/v1/customers/-1/loan-statistics",
+      "status": 400,
+      "expected_json": {
+        "error": "invalid_customer_id"
+      }
+    },
+    {
+      "name": "identificador_alfabetico",
+      "path": "/api/v1/customers/abc/loan-statistics",
+      "status": 400,
+      "expected_json": {
+        "error": "invalid_customer_id"
+      }
+    },
+    {
+      "name": "identificador_fraccionario",
+      "path": "/api/v1/customers/1.5/loan-statistics",
+      "status": 400,
+      "expected_json": {
+        "error": "invalid_customer_id"
+      }
+    }
+  ]
+}
