@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "defaults": {
+    "timeout_seconds": 120,
+    "max_attempts": 2
+  },
+  "agents": {
+    "requirement_analyzer": {
+      "provider": "codex",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "medium"
+    },
+    "banking_discovery": {
+      "provider": "codex",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "medium"
+    },
+    "readiness_gate": {
+      "provider": "codex",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high"
+    },
+    "integration_builder": {
+      "provider": "codex",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high"
+    }
+  },
+  "providers": {
+    "codex": {
+      "type": "cli",
+      "command": "codex"
+    },
+    "openrouter": {
+      "type": "openai_compatible",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key_env": "OPENROUTER_API_KEY"
+    }
+  }
+}
