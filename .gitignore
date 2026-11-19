@@ -12,3 +12,4 @@ infrastructure/postgres/init/*.gz
 
 # Local database credentials
 **/.env.reader
+**/.env.control
