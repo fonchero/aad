@@ -21,6 +21,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+  aif-api:
+    build:
+      context: ../../aif/api
+      dockerfile: Dockerfile
+    container_name: aad-aif-api
+    restart: unless-stopped
+
+    env_file:
+      - .env.control
+
+    environment:
+      PGHOST: banking-db
+      PGPORT: "5432"
+      PGSSLMODE: disable
+      PGCONNECT_TIMEOUT: "5"
+
+    ports:
+      - "127.0.0.1:8080:8080"
+
+    depends_on:
+      banking-db:
+        condition: service_healthy
 
 volumes:
   banking_data:
