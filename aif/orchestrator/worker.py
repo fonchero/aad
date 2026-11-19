@@ -32,16 +32,15 @@ def credentials(name):
     }
 
 
-def event(conn, request_id, event_type, payload):
+def event(conn, request_id, event_type, payload, execution_id=None):
     conn.execute(
         """
         INSERT INTO aif.events
-            (request_id, event_type, source, payload)
-        VALUES (%s, %s, 'AIF_ORCHESTRATOR', %s)
+            (request_id, execution_id, event_type, source, payload)
+        VALUES (%s, %s, %s, 'AIF_ORCHESTRATOR', %s)
         """,
-        (request_id, event_type, Jsonb(payload)),
+        (request_id, execution_id, event_type, Jsonb(payload)),
     )
-
 
 def fetch_request(request_id):
     with urlopen(
@@ -66,13 +65,48 @@ def claim_request(request_id):
 
         if not row:
             raise RuntimeError(
-                "La solicitud no existe o ya no esta en DRAFT"
+                "La solicitud no existe o ya no está en DRAFT"
             )
 
-        event(conn, request_id, "ANALYSIS_STARTED", {
-            "status": "DISCOVERING"
-        })
+        execution = conn.execute(
+            """
+            INSERT INTO aif.executions
+                (request_id, attempt, status,
+                 agent_provider, started_at)
+            VALUES (
+                %s,
+                (
+                    SELECT COALESCE(MAX(attempt), 0) + 1
+                    FROM aif.executions
+                    WHERE request_id = %s
+                ),
+                'RUNNING',
+                %s,
+                NOW()
+            )
+            RETURNING id
+            """,
+            (
+                request_id,
+                request_id,
+                CONFIG["agents"]["requirement_analyzer"]["provider"],
+            ),
+        ).fetchone()
 
+        execution_id = execution[0]
+
+        event(
+            conn,
+            request_id,
+            "ANALYSIS_STARTED",
+            {
+                "status": "DISCOVERING",
+                "execution_id": str(execution_id),
+            },
+            execution_id,
+        )
+
+    return execution_id
 
 def codex_run(agent, prompt):
     settings = CONFIG["agents"][agent]
@@ -304,9 +338,10 @@ def readiness(request, analysis, discovery):
     return result
 
 
-def persist(request_id, analysis, discovery, decision):
+def persist(request_id, execution_id, analysis, discovery, decision):
     is_ready = decision["build_readiness"] == "GO"
     status = "READY_FOR_BUILD" if is_ready else "WAITING_INPUT"
+    execution_status = "SUCCEEDED" if is_ready else "WAITING_INPUT"
 
     specification = {
         "analysis": analysis,
@@ -329,22 +364,33 @@ def persist(request_id, analysis, discovery, decision):
 
         if not row:
             raise RuntimeError(
-                "La solicitud cambio de estado durante el analisis"
+                "La solicitud cambió de estado durante el análisis"
             )
 
-        event(conn, request_id, "REQUIREMENT_ANALYZED", {
-            "readiness": analysis["readiness"],
-            "model": CONFIG["agents"][
-                "requirement_analyzer"
-            ]["model"],
-        })
+        event(
+            conn, request_id, "REQUIREMENT_ANALYZED",
+            {
+                "readiness": analysis["readiness"],
+                "provider": CONFIG["agents"][
+                    "requirement_analyzer"
+                ]["provider"],
+                "model": CONFIG["agents"][
+                    "requirement_analyzer"
+                ]["model"],
+            },
+            execution_id,
+        )
 
-        event(conn, request_id, "BANKING_DISCOVERY_COMPLETED", {
-            "loan_status_counts":
-                discovery["loan_status_counts"],
-            "paid_off_payment_coverage":
-                discovery["paid_off_payment_coverage"],
-        })
+        event(
+            conn, request_id, "BANKING_DISCOVERY_COMPLETED",
+            {
+                "loan_status_counts":
+                    discovery["loan_status_counts"],
+                "paid_off_payment_coverage":
+                    discovery["paid_off_payment_coverage"],
+            },
+            execution_id,
+        )
 
         for question in decision["questions"]:
             conn.execute(
@@ -360,32 +406,78 @@ def persist(request_id, analysis, discovery, decision):
                 ),
             )
 
-        event(conn, request_id, "READINESS_EVALUATED", {
-            "functional": decision["functional_readiness"],
-            "data": decision["data_feasibility"],
-            "build": decision["build_readiness"],
-            "blockers": decision["blockers"],
-            "questions_count": len(decision["questions"]),
-            "status": status,
-        })
+        event(
+            conn, request_id, "READINESS_EVALUATED",
+            {
+                "functional": decision["functional_readiness"],
+                "data": decision["data_feasibility"],
+                "build": decision["build_readiness"],
+                "blockers": decision["blockers"],
+                "questions_count": len(decision["questions"]),
+                "status": status,
+                "model": CONFIG["agents"]["readiness_gate"]["model"],
+            },
+            execution_id,
+        )
+
+        result = conn.execute(
+            """
+            UPDATE aif.executions
+            SET status = %s,
+                finished_at = NOW()
+            WHERE id = %s
+              AND request_id = %s
+              AND status = 'RUNNING'
+            RETURNING id
+            """,
+            (execution_status, execution_id, request_id),
+        ).fetchone()
+
+        if not result:
+            raise RuntimeError(
+                "No se pudo finalizar la ejecución"
+            )
 
     return status
 
-
-def record_failure(request_id, message):
+def record_failure(request_id, execution_id, message):
     with psycopg.connect(**credentials(".env.control")) as conn:
+        row = conn.execute(
+            """
+            UPDATE aif.executions
+            SET status = 'FAILED',
+                finished_at = NOW(),
+                error_message = %s
+            WHERE id = %s
+              AND request_id = %s
+              AND status = 'RUNNING'
+            RETURNING id
+            """,
+            (message[:1000], execution_id, request_id),
+        ).fetchone()
+
+        if not row:
+            raise RuntimeError(
+                "La ejecución ya no está en RUNNING"
+            )
+
         conn.execute(
             """
             UPDATE aif.requests
-            SET status = 'FAILED', updated_at = NOW()
+            SET status = 'FAILED',
+                updated_at = NOW()
             WHERE id = %s AND status = 'DISCOVERING'
             """,
             (request_id,),
         )
-        event(conn, request_id, "ANALYSIS_FAILED", {
-            "error": message[:1000]
-        })
 
+        event(
+            conn,
+            request_id,
+            "ANALYSIS_FAILED",
+            {"error": message[:1000]},
+            execution_id,
+        )
 
 def main():
     parser = argparse.ArgumentParser()
@@ -408,7 +500,8 @@ def main():
             "Banking Discovery V0.1 solo admite prestamos"
         )
 
-    claim_request(args.request_id)
+    execution_id = claim_request(args.request_id)
+    print(f"Execution ID: {execution_id}", flush=True)
 
     try:
         analysis = analyze(request)
@@ -424,11 +517,13 @@ def main():
         )
 
         status = persist(
-            args.request_id, analysis, discovery, decision
+            args.request_id, execution_id,
+            analysis, discovery, decision
         )
 
         print(json.dumps({
             "request_id": args.request_id,
+            "execution_id": str(execution_id),
             "status": status,
             "build_readiness": decision["build_readiness"],
             "questions": len(decision["questions"]),
@@ -437,7 +532,7 @@ def main():
 
     except Exception as error:
         try:
-            record_failure(args.request_id, str(error))
+            record_failure(args.request_id, execution_id, str(error))
         except Exception as recording_error:
             print("Error al registrar fallo:", recording_error)
         raise
