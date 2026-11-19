@@ -1,0 +1,76 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "functional_readiness": {
+      "type": "string",
+      "enum": ["READY", "NEEDS_CLARIFICATION"]
+    },
+    "data_feasibility": {
+      "type": "string",
+      "enum": ["FEASIBLE", "BLOCKED", "UNKNOWN"]
+    },
+    "build_readiness": {
+      "type": "string",
+      "enum": ["GO", "NO_GO"]
+    },
+    "functional_summary": {
+      "type": "string"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "concept": {"type": "string"},
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "RESOLVED",
+              "NEEDS_DISCOVERY",
+              "NEEDS_USER_INPUT",
+              "BLOCKED"
+            ]
+          },
+          "evidence": {"type": "string"}
+        },
+        "required": ["concept", "disposition", "evidence"]
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {"type": "string"},
+          "description": {"type": "string"},
+          "evidence": {"type": "string"}
+        },
+        "required": ["type", "description", "evidence"]
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "question": {"type": "string"},
+          "reason": {"type": "string"}
+        },
+        "required": ["question", "reason"]
+      }
+    }
+  },
+  "required": [
+    "functional_readiness",
+    "data_feasibility",
+    "build_readiness",
+    "functional_summary",
+    "findings",
+    "blockers",
+    "questions"
+  ]
+}
