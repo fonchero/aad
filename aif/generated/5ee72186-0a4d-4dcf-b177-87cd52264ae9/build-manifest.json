@@ -1,0 +1,49 @@
+{
+  "schema_version": "0.2",
+  "request_id": "5ee72186-0a4d-4dcf-b177-87cd52264ae9",
+  "execution_id": "e99dbfc4-2447-4015-b06f-3e4f90faf1bc",
+  "created_at": "2026-11-19T04:44:42.214441+00:00",
+  "source": {
+    "build_readiness": "GO"
+  },
+  "builder": {
+    "provider": "codex",
+    "model": "gpt-6.2-sol",
+    "reasoning_effort": "medium",
+    "invocations": 1,
+    "output_excerpt": "Proyecto Go 1.24 generado en el directorio de trabajo. Incluye `go.mod`, `go.sum`, el código de ambos endpoints, pruebas automatizadas, un [Dockerfile multi-stage](/tmp/aad-build-418tazp9/Dockerfile) y el [README con instrucciones de ejecución](/tmp/aad-build-418tazp9/README.md).\n\nLa revisión estática se completó. La compilación y las pruebas quedaron pendientes porque Go no está instalado en este entorno."
+  },
+  "artifact": {
+    "image_tag": "aad-loans-summary:5ee72186",
+    "image_id": "sha256:55d3cdcc80d6de975a32e5b5c6c4c3d9209c02afd3aea19ccce117913b0e115d",
+    "files_sha256": {
+      "Dockerfile": "6ec570b35f8f1813c6c7334a0c4288d0971078713299251da928b3f5dff83d7c",
+      "README.md": "ce32a2f5bfdfa174bc68f65e193bd0945f0b90bc0001106c3c40ec825d758329",
+      "go.mod": "c4d4ea7c947bfa408fb8c8427b94851bd5ccfb4947b68f898ebe5334db8b849d",
+      "go.sum": "9f0a8e12ea337fc0876a9b4b0a647f69dab68d8aef1f9a96aa5bc788d4cac958",
+      "http.go": "ec50bdea89fc2069178beaa698c52dad000763c3b72d0e7caff040c54d5e4934",
+      "loans.go": "69f3c8b0e2cfc59ee3cc9eec3001b0d8023ea47cb83c829cba9104213335ec9a",
+      "main.go": "0b5e9978d20b33de0d0063657babefde82f539eed0f6b892b2d3e44de8840632",
+      "service_test.go": "17bee53cff0e6173422e89332140c1dacab17bf330fa9395901fe0a0ed0b6c1c"
+    }
+  },
+  "validation": {
+    "status": "PASS",
+    "go": {
+      "format": "PASS",
+      "tests": "PASS",
+      "vet": "PASS",
+      "build": "PASS",
+      "output": "ok  \taif-loans-summary\t0.002s"
+    },
+    "e2e": {
+      "status": "PASS",
+      "endpoint": "/api/v1/loans/summary",
+      "total_loans": 300,
+      "groups_compared": 3,
+      "total_amount": "61903365.76",
+      "exact_json_match": true
+    },
+    "validated_at": "2026-11-19T04:44:42.213129+00:00"
+  }
+}
