@@ -6,3 +6,6 @@ data/
 **/pgdata/
 **/postgres-data/
 .DS_Store
+
+# Dataset bancario descargado
+infrastructure/postgres/init/*.gz
