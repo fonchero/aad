@@ -1,0 +1,49 @@
+{
+  "schema_version": "0.1",
+  "request_id": "d0b3ace2-9d33-4004-b670-80f9cdade00e",
+  "created_at": "2026-11-19T04:25:43.194762+00:00",
+  "source": {
+    "system": "AIF",
+    "request_status_at_build": "READY_FOR_BUILD",
+    "functional_readiness": "READY",
+    "data_feasibility": "FEASIBLE",
+    "build_readiness": "GO"
+  },
+  "builder": {
+    "method": "codex",
+    "generation_mode": "manual_v0_1",
+    "automated_lifecycle": false
+  },
+  "artifact": {
+    "language": "go",
+    "image_tag": "aad-customer-loans:0.1",
+    "image_id": "sha256:ba995ae66a9c47c134ae14e8aeb337d0ef10655be0875a627c9429cb77fae362",
+    "files_sha256": {
+      ".dockerignore": "e3b4e335f926694e44cac36570ed8d297768b82c3792b1d14740e60932507ccc",
+      "Dockerfile": "8c758a5736a890051ee70d5ef040e536e10fbd5d0694b9b909025e65c56cfbfa",
+      "README.md": "0717e3254faa89a17b127e1b5fd7ebf03041240d18495eb88fb5bab3f9c69481",
+      "go.mod": "815ab7ad07cf03d8e701798bbf03ae6fc95873c782841910142be06ba02ec640",
+      "go.sum": "9f0a8e12ea337fc0876a9b4b0a647f69dab68d8aef1f9a96aa5bc788d4cac958",
+      "http.go": "e642aab9a1e5c6c42b2660b2511b087540bf17d84a24178e71d076048758a03f",
+      "http_test.go": "ceff63ec4e9f86439a8c7bd7b656bbdba064db84c257b0a007d6633b081c69fa",
+      "main.go": "a7dc300d07d88041124da0d5274eef80253e8ee265be60c132d301c2f2e8f629",
+      "postgres.go": "e304217f304e77b1c2265a04dfc90f9ecdd8d7d14782f0b8873d8d9e12de57a0"
+    }
+  },
+  "validation": {
+    "go_format": "PASS",
+    "go_test": "PASS",
+    "go_vet": "PASS",
+    "go_build": "PASS",
+    "http_health": 200,
+    "http_existing_customer": 200,
+    "http_unknown_customer": 404,
+    "http_invalid_customer_id": 400,
+    "database_comparison": {
+      "status": "PASS",
+      "customer_id": 72,
+      "loans_compared": 3,
+      "exact_json_match": true
+    }
+  }
+}
