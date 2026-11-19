@@ -13,3 +13,7 @@ infrastructure/postgres/init/*.gz
 # Local database credentials
 **/.env.reader
 **/.env.control
+
+# Local Python environments
+.venv/
+__pycache__/
