@@ -9,3 +9,6 @@ data/
 
 # Dataset bancario descargado
 infrastructure/postgres/init/*.gz
+
+# Local database credentials
+**/.env.reader
